@@ -134,6 +134,14 @@ export function getBlockedGlobals(): BlockedGlobal[] {
       strategy: "throw",
       reason: "process.dlopen allows loading native addons",
     },
+    {
+      prop: "getBuiltinModule",
+      target: process,
+      violationType: "process_get_builtin_module",
+      strategy: "throw",
+      reason:
+        "process.getBuiltinModule allows loading native Node.js modules (fs, child_process, vm)",
+    },
     // Note: process.mainModule is handled specially in defense-in-depth-box.ts
     // and worker-defense-in-depth.ts because it may be undefined in ESM contexts
     // but we still want to block both reading and setting it.

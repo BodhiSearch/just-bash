@@ -538,6 +538,35 @@ describe("WorkerDefenseInDepth", () => {
       });
     });
 
+    describe("process.getBuiltinModule blocking", () => {
+      // process.getBuiltinModule exists on Node >= 22
+      const hasGetBuiltinModule =
+        typeof (process as unknown as Record<string, unknown>)
+          .getBuiltinModule === "function";
+
+      it.skipIf(!hasGetBuiltinModule)(
+        "should block process.getBuiltinModule",
+        () => {
+          defense = new WorkerDefenseInDepth({});
+
+          let error: Error | undefined;
+          try {
+            (
+              process as unknown as {
+                getBuiltinModule: (name: string) => unknown;
+              }
+            ).getBuiltinModule("fs");
+          } catch (e) {
+            error = e as Error;
+          }
+
+          defense.deactivate();
+          expect(error).toBeInstanceOf(WorkerSecurityViolationError);
+          expect(error?.message).toContain("process.getBuiltinModule");
+        },
+      );
+    });
+
     describe("other blocked globals", () => {
       it("should block WeakRef", () => {
         defense = new WorkerDefenseInDepth({});

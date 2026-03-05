@@ -599,27 +599,34 @@ if 'jb_http' in sys.modules:
     // sys might not be imported yet, ignore
   }
 
+  // Create the bridge request function and inject it directly into Python globals.
+  // We use pyodide.globals.set instead of registerJsModule so that the function
+  // is available without importing (import of _jb_http_bridge is blocked).
+  const bridgeRequestFn = (
+    url: string,
+    method: string,
+    headersJson: string | undefined,
+    body: string | undefined,
+  ) => {
+    try {
+      // Parse headers from JSON (serialized in Python to avoid PyProxy issues)
+      const headers = headersJson ? JSON.parse(headersJson) : undefined;
+      const result = backend.httpRequest(url, {
+        method: method || "GET",
+        headers,
+        body: body || undefined,
+      });
+      return JSON.stringify(result);
+    } catch (e) {
+      return JSON.stringify({ error: (e as Error).message });
+    }
+  };
   pyodide.registerJsModule("_jb_http_bridge", {
-    request: (
-      url: string,
-      method: string,
-      headersJson: string | undefined,
-      body: string | undefined,
-    ) => {
-      try {
-        // Parse headers from JSON (serialized in Python to avoid PyProxy issues)
-        const headers = headersJson ? JSON.parse(headersJson) : undefined;
-        const result = backend.httpRequest(url, {
-          method: method || "GET",
-          headers,
-          body: body || undefined,
-        });
-        return JSON.stringify(result);
-      } catch (e) {
-        return JSON.stringify({ error: (e as Error).message });
-      }
-    },
+    request: bridgeRequestFn,
   });
+  // Inject the request function directly into Python __main__ globals.
+  // This avoids needing 'import _jb_http_bridge' which is blocked by sandbox.
+  pyodide.globals.set("_jb_http_req_fn", bridgeRequestFn);
 
   // Set up environment variables
   const envSetup = Object.entries(input.env)
@@ -644,6 +651,10 @@ import json
 ${envSetup}
 
 sys.argv = [${argvList}]
+
+# _jb_http_req_fn is injected by TypeScript via pyodide.globals.set().
+# It's the bridge request function directly — no import of _jb_http_bridge needed.
+# The _jb_http_bridge module is blocked from user import.
 
 # Create jb_http module for HTTP requests
 class _JbHttpResponse:
@@ -673,16 +684,17 @@ class _JbHttpResponse:
 class _JbHttp:
     """HTTP client that bridges to just-bash's secureFetch"""
     def request(self, method, url, headers=None, data=None, json_data=None):
-        # Import fresh each time to ensure we use the current bridge
-        # (important when worker is reused with different SharedArrayBuffer)
-        import _jb_http_bridge
+        # Uses _jb_http_req_fn captured above from sys.modules before scrub.
+        # The bridge module itself is blocked from user import.
+        if _jb_http_req_fn is None:
+            raise Exception('HTTP bridge not available')
         if json_data is not None:
             data = json.dumps(json_data)
             headers = headers or {}
             headers['Content-Type'] = 'application/json'
         # Serialize headers to JSON to avoid PyProxy issues when passing to JS
         headers_json = json.dumps(headers) if headers else None
-        result_json = _jb_http_bridge.request(url, method, headers_json, data)
+        result_json = _jb_http_req_fn(url, method, headers_json, data)
         result = json.loads(result_json)
         # Check for errors from the bridge (network not configured, URL not allowed, etc.)
         if 'error' in result and result.get('status') is None:
@@ -726,14 +738,15 @@ sys.modules['jb_http'] = jb_http
 # ============================================================
 # Only apply sandbox restrictions once per Pyodide instance
 if not hasattr(builtins, '_jb_sandbox_initialized'):
+  def _jb_init_sandbox():
     builtins._jb_sandbox_initialized = True
 
     # ------------------------------------------------------------
-    # 1. Block dangerous module imports (js, pyodide, pyodide_js, pyodide.ffi)
+    # 1. Block dangerous module imports (js, pyodide, pyodide_js, pyodide.ffi, _pyodide)
     # These allow sandbox escape via JavaScript execution
     # ------------------------------------------------------------
-    _BLOCKED_MODULES = frozenset({'js', 'pyodide', 'pyodide_js', 'pyodide.ffi'})
-    _BLOCKED_PREFIXES = ('js.', 'pyodide.', 'pyodide_js.')
+    _BLOCKED_MODULES = frozenset({'js', 'pyodide', 'pyodide_js', 'pyodide.ffi', '_pyodide', '_pyodide_core', 'ctypes', '_ctypes', '_jb_http_bridge'})
+    _BLOCKED_PREFIXES = ('js.', 'pyodide.', 'pyodide_js.', '_pyodide.', '_pyodide_core.', 'ctypes.', '_ctypes.', '_jb_http_bridge.')
 
     # Remove pre-loaded dangerous modules from sys.modules
     for _blocked_mod in list(sys.modules.keys()):
@@ -753,7 +766,13 @@ if not hasattr(builtins, '_jb_sandbox_initialized'):
             """Wrapper that hides function internals from introspection."""
             __slots__ = ()
             def __call__(self, name, globals=None, locals=None, fromlist=(), level=0):
-                return _inner(name, globals, locals, fromlist, level)
+                try:
+                    return _inner(name, globals, locals, fromlist, level)
+                except BaseException as _e:
+                    # Strip traceback to prevent frame inspection leaking
+                    # orig_import from _inner's closure variables
+                    _e.__traceback__ = None
+                    raise
             def __getattribute__(self, name):
                 if name in ('__call__', '__class__'):
                     return object.__getattribute__(self, name)
@@ -763,7 +782,140 @@ if not hasattr(builtins, '_jb_sandbox_initialized'):
         return _SecureImport()
 
     builtins.__import__ = _make_secure_import(builtins.__import__, _BLOCKED_MODULES, _BLOCKED_PREFIXES)
+
+    # ------------------------------------------------------------
+    # 1b. Block imports via sys.meta_path finder
+    # importlib.import_module routes through _bootstrap._find_and_load,
+    # NOT through builtins.__import__. A meta_path finder blocks ALL
+    # import paths at the most fundamental level.
+    # ------------------------------------------------------------
+    _blocked_set = frozenset(_BLOCKED_MODULES)
+    _blocked_pfx = tuple(_BLOCKED_PREFIXES)
+
+    class _BlockingFinder:
+        """Meta-path finder that blocks imports of sandboxed modules."""
+        __slots__ = ()
+        def find_module(self, name, path=None):
+            if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+                raise ImportError(f"Module '{name}' is blocked in this sandbox")
+            return None
+        def find_spec(self, name, path, target=None):
+            if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+                raise ImportError(f"Module '{name}' is blocked in this sandbox")
+            return None
+    sys.meta_path.insert(0, _BlockingFinder())
+
+    # ------------------------------------------------------------
+    # 1c. Patch importlib.import_module and importlib.util.find_spec
+    # Belt-and-suspenders: also block at the importlib API level
+    # in case sys.modules already contains the blocked module.
+    # ------------------------------------------------------------
+    import importlib
+    import importlib.util
+
+    _orig_import_module = importlib.import_module
+    def _secure_import_module_inner(name, package=None):
+        if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+            raise ImportError(f"Module '{name}' is blocked in this sandbox")
+        return _orig_import_module(name, package)
+
+    class _SecureImportModule:
+        __slots__ = ()
+        def __call__(self, name, package=None):
+            try:
+                return _secure_import_module_inner(name, package)
+            except BaseException as _e:
+                _e.__traceback__ = None
+                raise
+        def __getattribute__(self, name):
+            if name in ('__call__', '__class__'):
+                return object.__getattribute__(self, name)
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        def __repr__(self):
+            return '<function import_module>'
+    importlib.import_module = _SecureImportModule()
+
+    _orig_find_spec = importlib.util.find_spec
+    def _secure_find_spec_inner(name, package=None):
+        if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+            raise ImportError(f"Module '{name}' is blocked in this sandbox")
+        return _orig_find_spec(name, package)
+
+    class _SecureFindSpec:
+        __slots__ = ()
+        def __call__(self, name, package=None):
+            try:
+                return _secure_find_spec_inner(name, package)
+            except BaseException as _e:
+                _e.__traceback__ = None
+                raise
+        def __getattribute__(self, name):
+            if name in ('__call__', '__class__'):
+                return object.__getattribute__(self, name)
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        def __repr__(self):
+            return '<function find_spec>'
+    importlib.util.find_spec = _SecureFindSpec()
+
+    # Note: We intentionally do NOT replace sys.modules with a custom dict
+    # subclass. Replacing it breaks lazy imports (e.g., _strptime used by
+    # datetime.strptime) because Pyodide's C-level import machinery
+    # caches the original dict. Instead, we rely on:
+    # 1. Per-run scrubbing of blocked modules from sys.modules
+    # 2. meta_path finder blocking new imports
+    # 3. builtins.__import__ hook blocking import statements
+
+    # ------------------------------------------------------------
+    # 1cc. Patch importlib._bootstrap at the deepest level
+    # _bootstrap.__import__ holds a reference to the ORIGINAL __import__
+    # (not our wrapper). An attacker can use it directly to bypass all
+    # our hooks. Patch it with our wrapper.
+    # Also patch _bootstrap._find_and_load — this is the function that
+    # the C-level import machinery calls. Even if an attacker steals
+    # orig_import via closure introspection AND replaces sys.meta_path,
+    # this blocks the import at the lowest Python-accessible level.
+    # ------------------------------------------------------------
+    _bootstrap_mod = sys.modules.get('importlib._bootstrap')
+    if _bootstrap_mod:
+        _bootstrap_mod.__import__ = builtins.__import__
+
+        _orig_find_and_load = _bootstrap_mod._find_and_load
+        def _secure_find_and_load(name, import_):
+            if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+                raise ImportError(f"Module '{name}' is blocked in this sandbox")
+            return _orig_find_and_load(name, import_)
+        _bootstrap_mod._find_and_load = _secure_find_and_load
+
+        # Also patch _find_and_load_unlocked (called internally)
+        if hasattr(_bootstrap_mod, '_find_and_load_unlocked'):
+            _orig_find_and_load_unlocked = _bootstrap_mod._find_and_load_unlocked
+            def _secure_find_and_load_unlocked(name, import_):
+                if name in _blocked_set or any(name.startswith(p) for p in _blocked_pfx):
+                    raise ImportError(f"Module '{name}' is blocked in this sandbox")
+                return _orig_find_and_load_unlocked(name, import_)
+            _bootstrap_mod._find_and_load_unlocked = _secure_find_and_load_unlocked
+
     del _BLOCKED_MODULES, _BLOCKED_PREFIXES, _make_secure_import
+
+    # ------------------------------------------------------------
+    # 1d. Block gc object-discovery functions
+    # gc.get_objects() can find purged module objects still in memory
+    # (held by Pyodide C internals), enabling sandbox escape.
+    # ------------------------------------------------------------
+    import gc as _gc_module
+    _gc_module.get_objects = lambda: []
+    _gc_module.get_referrers = lambda *args: []
+    _gc_module.get_referents = lambda *args: []
+
+    # ------------------------------------------------------------
+    # 1e. Neuter sys.settrace and sys.setprofile
+    # These debugging APIs expose call frames via trace callbacks.
+    # An attacker can use them to inspect closure variables in our
+    # import hooks (e.g., orig_import in _inner), stealing the
+    # original __import__ and bypassing all blocking.
+    # ------------------------------------------------------------
+    sys.settrace = lambda *args: None
+    sys.setprofile = lambda *args: None
 
     # ------------------------------------------------------------
     # 2. Path redirection helper
@@ -1129,6 +1281,19 @@ if not hasattr(builtins, '_jb_sandbox_initialized'):
             else:
                 yield p
     Path.rglob = _path_rglob
+
+  _jb_init_sandbox()
+  del _jb_init_sandbox
+
+# Per-run: scrub blocked modules from sys.modules.
+# Pyodide's C-level JsFinder may re-insert 'js' etc. between runs.
+# This is hardcoded inline (not a callable on builtins) so attackers cannot neuter it.
+for _jb_k in list(sys.modules.keys()):
+    if _jb_k in frozenset({'js', 'pyodide', 'pyodide_js', 'pyodide.ffi', '_pyodide', '_pyodide_core', 'ctypes', '_ctypes', '_jb_http_bridge'}) or \\
+       any(_jb_k.startswith(_p) for _p in ('js.', 'pyodide.', 'pyodide_js.', '_pyodide.', '_pyodide_core.', 'ctypes.', '_ctypes.', '_jb_http_bridge.')):
+        try: del sys.modules[_jb_k]
+        except (KeyError, ImportError): pass
+del _jb_k
 
 # Set cwd to host mount
 os.chdir('/host' + ${JSON.stringify(input.cwd)})

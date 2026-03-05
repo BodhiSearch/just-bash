@@ -81,6 +81,7 @@ export type SecurityViolationType =
   | "webassembly"
   | "shared_array_buffer"
   | "atomics"
+  | "process_get_builtin_module"
   | "error_prepare_stack_trace";
 
 /**
