@@ -16,5 +16,8 @@ export default defineConfig({
       "**/python-scripting*",
     ],
     setupFiles: [resolve(__dirname, "src/vitest-setup.ts")],
+    // vi.mock("node:worker_threads") is unreliable in threads pool
+    // because Vitest itself uses worker_threads for its thread pool.
+    poolMatchGlobs: [["forks", "**/sqlite3.worker-protocol-abuse.test.ts"]],
   },
 });

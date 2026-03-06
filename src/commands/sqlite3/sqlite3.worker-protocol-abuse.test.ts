@@ -1,49 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InMemoryFs } from "../../fs/in-memory-fs/in-memory-fs.js";
 import type { CommandContext } from "../../types.js";
+import { _internals, sqlite3Command } from "./sqlite3.js";
 
 type WorkerScript = (worker: {
   emit: (event: string, payload?: unknown) => void;
 }) => void;
 
-const mockState = vi.hoisted(() => ({
-  script: null as WorkerScript | null,
-}));
+function createMockWorker(script: WorkerScript) {
+  const handlers = new Map<string, Array<(payload?: unknown) => void>>();
 
-vi.mock("node:worker_threads", () => {
-  class MockWorker {
-    private handlers = new Map<string, Array<(payload?: unknown) => void>>();
-
-    constructor(_path: string, _opts: unknown) {
-      queueMicrotask(() => {
-        mockState.script?.({
-          emit: (event: string, payload?: unknown) => this.emit(event, payload),
-        });
-      });
-    }
-
-    on(event: string, cb: (payload?: unknown) => void): this {
-      const list = this.handlers.get(event) ?? [];
+  const worker = {
+    on(event: string, cb: (payload?: unknown) => void) {
+      const list = handlers.get(event) ?? [];
       list.push(cb);
-      this.handlers.set(event, list);
-      return this;
-    }
-
+      handlers.set(event, list);
+      return worker;
+    },
     terminate(): Promise<number> {
-      this.emit("exit", 0);
+      const list = handlers.get("exit") ?? [];
+      for (const cb of list) cb(0);
       return Promise.resolve(0);
-    }
+    },
+  };
 
-    private emit(event: string, payload?: unknown): void {
-      const list = this.handlers.get(event) ?? [];
-      for (const cb of list) cb(payload);
-    }
-  }
+  queueMicrotask(() => {
+    script({
+      emit: (event: string, payload?: unknown) => {
+        const list = handlers.get(event) ?? [];
+        for (const cb of list) cb(payload);
+      },
+    });
+  });
 
-  return { Worker: MockWorker };
-});
-
-import { sqlite3Command } from "./sqlite3.js";
+  return worker;
+}
 
 function createContext(): CommandContext {
   return {
@@ -60,16 +51,18 @@ function createContext(): CommandContext {
 
 describe("sqlite3 worker protocol abuse", () => {
   beforeEach(() => {
-    mockState.script = null;
+    vi.restoreAllMocks();
   });
 
   it("surfaces security-violation as explicit error with violation type", async () => {
-    mockState.script = (worker) => {
-      worker.emit("message", {
-        type: "security-violation",
-        violation: { type: "module_load" },
-      });
-    };
+    vi.spyOn(_internals, "createWorker").mockImplementation(() => {
+      return createMockWorker((worker) => {
+        worker.emit("message", {
+          type: "security-violation",
+          violation: { type: "module_load" },
+        });
+      }) as never;
+    });
 
     const result = await sqlite3Command.execute(
       [":memory:", "SELECT 1"],
@@ -82,9 +75,11 @@ describe("sqlite3 worker protocol abuse", () => {
   });
 
   it("throws when worker sends success without required result payload", async () => {
-    mockState.script = (worker) => {
-      worker.emit("message", { success: true });
-    };
+    vi.spyOn(_internals, "createWorker").mockImplementation(() => {
+      return createMockWorker((worker) => {
+        worker.emit("message", { success: true });
+      }) as never;
+    });
 
     await expect(
       sqlite3Command.execute([":memory:", "SELECT 1"], createContext()),

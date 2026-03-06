@@ -246,6 +246,13 @@ function findWorkerPath(): string {
   );
 }
 
+/** @internal Exposed for testing only */
+export const _internals = {
+  createWorker(workerPath: string, input: WorkerInput): Worker {
+    return new Worker(workerPath, { workerData: input });
+  },
+};
+
 async function executeInWorker(
   input: WorkerInput,
   timeoutMs: number,
@@ -255,8 +262,8 @@ async function executeInWorker(
     const workerPath = findWorkerPath();
 
     return await new Promise((resolve, reject) => {
-      const worker = DefenseInDepthBox.runTrusted(
-        () => new Worker(workerPath, { workerData: input }),
+      const worker = DefenseInDepthBox.runTrusted(() =>
+        _internals.createWorker(workerPath, input),
       );
 
       const timeout = _setTimeout(() => {
