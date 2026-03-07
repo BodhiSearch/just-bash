@@ -73,6 +73,7 @@ import {
 import { expandWord, expandWordWithGlob } from "./expansion.js";
 import { executeFunctionDef } from "./functions.js";
 import {
+  checkFdLimit,
   failure,
   OK,
   result,
@@ -623,6 +624,7 @@ export class Interpreter {
           if (!this.ctx.state.fileDescriptors) {
             this.ctx.state.fileDescriptors = new Map();
           }
+          checkFdLimit(this.ctx);
           this.ctx.state.fileDescriptors.set(fd, content);
         } else {
           stdin = content;
@@ -819,6 +821,7 @@ export class Interpreter {
               target,
             );
             await this.ctx.fs.writeFile(filePath, "", "utf8"); // truncate
+            checkFdLimit(this.ctx);
             this.ctx.state.fileDescriptors.set(fd, `__file__:${filePath}`);
             break;
           }
@@ -828,6 +831,7 @@ export class Interpreter {
               this.ctx.state.cwd,
               target,
             );
+            checkFdLimit(this.ctx);
             this.ctx.state.fileDescriptors.set(
               fd,
               `__file_append__:${filePath}`,
@@ -842,6 +846,7 @@ export class Interpreter {
             );
             try {
               const content = await this.ctx.fs.readFile(filePath);
+              checkFdLimit(this.ctx);
               this.ctx.state.fileDescriptors.set(fd, content);
             } catch {
               return failure(`bash: ${target}: No such file or directory\n`);
@@ -859,6 +864,7 @@ export class Interpreter {
             );
             try {
               const content = await this.ctx.fs.readFile(filePath);
+              checkFdLimit(this.ctx);
               this.ctx.state.fileDescriptors.set(
                 fd,
                 `__rw__:${filePath.length}:${filePath}:0:${content}`,
@@ -866,6 +872,7 @@ export class Interpreter {
             } catch {
               // File doesn't exist - create empty
               await this.ctx.fs.writeFile(filePath, "", "utf8");
+              checkFdLimit(this.ctx);
               this.ctx.state.fileDescriptors.set(
                 fd,
                 `__rw__:${filePath.length}:${filePath}:0:`,
@@ -881,6 +888,7 @@ export class Interpreter {
               this.ctx.state.fileDescriptors.delete(fd);
             } else if (target.endsWith("-")) {
               // Move operation: N>&M- duplicates M to N then closes M
+              // Net-neutral on FD count (set + delete), skip checkFdLimit
               const sourceFdStr = target.slice(0, -1);
               const sourceFd = Number.parseInt(sourceFdStr, 10);
               if (!Number.isNaN(sourceFd)) {
@@ -903,6 +911,7 @@ export class Interpreter {
               const sourceFd = Number.parseInt(target, 10);
               if (!Number.isNaN(sourceFd)) {
                 // Store FD duplication: fd N points to fd M
+                checkFdLimit(this.ctx);
                 this.ctx.state.fileDescriptors.set(
                   fd,
                   `__dupout__:${sourceFd}`,
@@ -919,6 +928,7 @@ export class Interpreter {
               this.ctx.state.fileDescriptors.delete(fd);
             } else if (target.endsWith("-")) {
               // Move operation: N<&M- duplicates M to N then closes M
+              // Net-neutral on FD count (set + delete), skip checkFdLimit
               const sourceFdStr = target.slice(0, -1);
               const sourceFd = Number.parseInt(sourceFdStr, 10);
               if (!Number.isNaN(sourceFd)) {
@@ -940,6 +950,7 @@ export class Interpreter {
               const sourceFd = Number.parseInt(target, 10);
               if (!Number.isNaN(sourceFd)) {
                 // Store FD duplication for input
+                checkFdLimit(this.ctx);
                 this.ctx.state.fileDescriptors.set(fd, `__dupin__:${sourceFd}`);
               }
             }
