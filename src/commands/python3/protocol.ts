@@ -114,7 +114,10 @@ const StatLayout = {
 } as const;
 
 /** Create a new SharedArrayBuffer for the protocol */
-import { _Atomics, _SharedArrayBuffer } from "../../timers.js";
+import {
+  _Atomics,
+  _SharedArrayBuffer,
+} from "../../security/trusted-globals.js";
 export function createSharedBuffer(): SharedArrayBuffer {
   return new _SharedArrayBuffer(Size.TOTAL);
 }

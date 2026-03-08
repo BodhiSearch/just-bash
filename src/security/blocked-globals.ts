@@ -236,7 +236,14 @@ export function getBlockedGlobals(): BlockedGlobal[] {
     // Note: process.connected is a boolean primitive, handled specially
     // in defense-in-depth-box.ts and worker-defense-in-depth.ts
 
-    // Working directory manipulation
+    // Working directory access/manipulation
+    {
+      prop: "cwd",
+      target: process,
+      violationType: "process_chdir",
+      strategy: "throw",
+      reason: "process.cwd could disclose real host working directory path",
+    },
     {
       prop: "chdir",
       target: process,
@@ -307,6 +314,13 @@ export function getBlockedGlobals(): BlockedGlobal[] {
     },
 
     // Introspection/interception vectors (freeze instead of throw)
+    // SECURITY RATIONALE: Reflect is frozen (not blocked) because:
+    // 1. Defense infrastructure uses Reflect.apply/get/set/construct internally
+    // 2. Frozen Reflect cannot be mutated but remains fully functional
+    // 3. Reflect.construct(Function, ['code']) IS safe because globalThis.Function
+    //    is replaced with a blocking proxy — Reflect.construct receives the proxy
+    // 4. Security depends on NEVER leaking original Function/eval references.
+    //    If an unpatched Function ref leaked, Reflect.construct would bypass defense.
     {
       prop: "Reflect",
       target: globalThis,

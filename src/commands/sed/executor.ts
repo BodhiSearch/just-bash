@@ -45,7 +45,6 @@ export function createInitialState(
     currentFilename: filename,
     pendingFileReads: [],
     pendingFileWrites: [],
-    pendingExecute: undefined,
     rangeStates: rangeStates || new Map(),
     linesConsumedInCycle: 0,
   };
@@ -822,17 +821,11 @@ function executeCommand(
     }
 
     case "execute":
-      // e - queue shell execution (deferred execution)
-      if (cmd.command) {
-        // e command - execute specified command, append output
-        state.pendingExecute = { command: cmd.command, replacePattern: false };
-      } else {
-        // e (no args) - execute pattern space, replace with output
-        state.pendingExecute = {
-          command: state.patternSpace,
-          replacePattern: true,
-        };
-      }
+      // SECURITY: sed 'e' command (execute shell command) is intentionally
+      // blocked in sandboxed environment. Same rationale as AWK system().
+      state.errorMessage =
+        "sed: e command (shell execution) is not supported in sandboxed environment";
+      state.quit = true;
       break;
 
     case "transliterate":

@@ -5,7 +5,7 @@
  */
 
 import type { CommandNode, PipelineNode } from "../ast/types.js";
-import { _performanceNow } from "../timers.js";
+import { _performanceNow } from "../security/trusted-globals.js";
 import type { ExecResult } from "../types.js";
 import { BadSubstitutionError, ErrexitError, ExitError } from "./errors.js";
 import { OK } from "./helpers/result.js";

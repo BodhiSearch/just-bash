@@ -112,29 +112,31 @@ describe("tar with binary data", () => {
       expect(result.stdout).toBe("bzip2 content");
     });
 
-    it("should reject xz archive piped through cat by default", async () => {
+    it("should reject xz compression by default", async () => {
       const env = new Bash({
         files: {
           "/src/file.txt": "xz content",
         },
       });
 
-      await env.exec("tar -cJf /archive.tar.xz -C /src file.txt");
-      const result = await env.exec("cat /archive.tar.xz | tar -xJ -C /dest");
+      const result = await env.exec(
+        "tar -cJf /archive.tar.xz -C /src file.txt",
+      );
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain("disabled by default");
     });
 
-    it("should reject zstd archive piped through cat by default", async () => {
+    it("should reject zstd compression by default", async () => {
       const env = new Bash({
         files: {
           "/src/file.txt": "zstd content",
         },
       });
 
-      await env.exec("tar --zstd -cf /archive.tar.zst -C /src file.txt");
       const result = await env.exec(
-        "cat /archive.tar.zst | tar --zstd -x -C /dest",
+        "tar --zstd -cf /archive.tar.zst -C /src file.txt",
       );
+      expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain("disabled by default");
     });
   });

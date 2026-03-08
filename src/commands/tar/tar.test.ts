@@ -389,58 +389,16 @@ describe("tar", () => {
   });
 
   describe("xz compression (-J)", () => {
-    it("should create xz compressed archive", async () => {
-      const env = new Bash({
-        files: {
-          "/test.txt":
-            "Hello, World! This is some content to compress with xz.",
-        },
-      });
-      const result = await env.exec("tar -cJvf /archive.tar.xz /test.txt");
-      expect(result.exitCode).toBe(0);
-      expect(result.stderr).toContain("test.txt");
-
-      // Verify archive was created
-      const stat = await env.exec("stat /archive.tar.xz");
-      expect(stat.exitCode).toBe(0);
-    });
-
-    it("should reject xz decompression by default", async () => {
+    it("should reject xz compression by default", async () => {
       const env = new Bash({
         files: {
           "/test.txt": "Hello, xz compressed World!",
         },
       });
-      await env.exec("tar -cJvf /archive.tar.xz /test.txt");
-      const result = await env.exec("tar -xJvf /archive.tar.xz");
+      const result = await env.exec("tar -cJvf /archive.tar.xz /test.txt");
       expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain("disabled by default");
       expect(result.stderr).toContain("native codec");
-    });
-
-    it("should reject auto-detected xz decompression by default", async () => {
-      const env = new Bash({
-        files: {
-          "/test.txt": "Auto-detect xz!",
-        },
-      });
-      await env.exec("tar -cJf /archive.tar.xz /test.txt");
-      // Extract without -J flag - should auto-detect and still reject
-      const result = await env.exec("tar -xf /archive.tar.xz");
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("disabled by default");
-    });
-
-    it("should reject xz listing by default", async () => {
-      const env = new Bash({
-        files: {
-          "/test.txt": "List xz content",
-        },
-      });
-      await env.exec("tar -cJf /archive.tar.xz /test.txt");
-      const result = await env.exec("tar -tJf /archive.tar.xz");
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("disabled by default");
     });
   });
 
@@ -1028,38 +986,28 @@ describe("tar", () => {
       expect(list.stdout).toContain("test.txt");
     });
 
-    it("should auto-detect xz from .tar.xz extension (creation succeeds, listing blocked)", async () => {
+    it("should auto-detect xz from .tar.xz extension and block (native codec)", async () => {
       const env = new Bash({
         files: {
           "/test.txt": "Hello World",
         },
       });
 
-      // Creation with xz still works (compressing trusted data)
       const result = await env.exec("tar -caf /archive.tar.xz /test.txt");
-      expect(result.exitCode).toBe(0);
-
-      // Listing xz archive is blocked by default
-      const list = await env.exec("tar -tJf /archive.tar.xz");
-      expect(list.exitCode).toBe(2);
-      expect(list.stderr).toContain("disabled by default");
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain("disabled by default");
     });
 
-    it("should auto-detect zstd from .tar.zst extension (creation succeeds, listing blocked)", async () => {
+    it("should auto-detect zstd from .tar.zst extension and block (native codec)", async () => {
       const env = new Bash({
         files: {
           "/test.txt": "Hello World",
         },
       });
 
-      // Creation with zstd still works (compressing trusted data)
       const result = await env.exec("tar -caf /archive.tar.zst /test.txt");
-      expect(result.exitCode).toBe(0);
-
-      // Listing zstd archive is blocked by default
-      const list = await env.exec("tar --zstd -tf /archive.tar.zst");
-      expect(list.exitCode).toBe(2);
-      expect(list.stderr).toContain("disabled by default");
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain("disabled by default");
     });
 
     it("should create plain tar for .tar extension", async () => {
@@ -1208,7 +1156,7 @@ describe("tar", () => {
   });
 
   describe("zstd compression (--zstd)", () => {
-    it("should create zstd-compressed archive", async () => {
+    it("should reject zstd compression by default", async () => {
       const env = new Bash({
         files: {
           "/test.txt": "Hello World",
@@ -1218,56 +1166,9 @@ describe("tar", () => {
       const result = await env.exec(
         "tar --zstd -cf /archive.tar.zst /test.txt",
       );
-      expect(result.exitCode).toBe(0);
-
-      // Verify the archive exists
-      const ls = await env.exec("ls -la /archive.tar.zst");
-      expect(ls.exitCode).toBe(0);
-    });
-
-    it("should reject zstd decompression by default", async () => {
-      const env = new Bash({
-        files: {
-          "/test.txt": "Hello World",
-        },
-      });
-
-      await env.exec("tar --zstd -cf /archive.tar.zst /test.txt");
-
-      const result = await env.exec("tar --zstd -xf /archive.tar.zst");
       expect(result.exitCode).toBe(2);
       expect(result.stderr).toContain("disabled by default");
       expect(result.stderr).toContain("native codec");
-    });
-
-    it("should reject auto-detected zstd decompression by default", async () => {
-      const env = new Bash({
-        files: {
-          "/test.txt": "Hello World",
-        },
-      });
-
-      await env.exec("tar --zstd -cf /archive.tar.zst /test.txt");
-
-      // Extract without --zstd flag (auto-detect) - still blocked
-      const result = await env.exec("tar -xf /archive.tar.zst");
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("disabled by default");
-    });
-
-    it("should reject zstd listing by default", async () => {
-      const env = new Bash({
-        files: {
-          "/file1.txt": "Content 1",
-          "/file2.txt": "Content 2",
-        },
-      });
-
-      await env.exec("tar --zstd -cf /archive.tar.zst /file1.txt /file2.txt");
-
-      const result = await env.exec("tar --zstd -tf /archive.tar.zst");
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("disabled by default");
     });
   });
 

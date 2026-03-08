@@ -156,16 +156,15 @@ describe("Defense-in-depth bypass hypotheses", () => {
     expect(captured).toBe("__JB_DIRECT_STDOUT_BYPASS__\n");
   });
 
-  it("H5: process.cwd() remains readable in sandbox context (host path signal)", async () => {
+  it("H5: process.cwd() is blocked in sandbox context (info disclosure)", async () => {
     const box = DefenseInDepthBox.getInstance(true);
     const handle = box.activate();
 
-    let cwdInSandbox: string | undefined;
     let readError: Error | undefined;
 
     await handle.run(async () => {
       try {
-        cwdInSandbox = process.cwd();
+        process.cwd();
       } catch (e) {
         readError = e as Error;
       }
@@ -173,8 +172,7 @@ describe("Defense-in-depth bypass hypotheses", () => {
 
     handle.deactivate();
 
-    expect(readError).toBeUndefined();
-    expect(cwdInSandbox).toBe(process.cwd());
-    expect(cwdInSandbox && cwdInSandbox.length > 0).toBe(true);
+    expect(readError).toBeInstanceOf(SecurityViolationError);
+    expect(readError?.message).toContain("process.cwd");
   });
 });

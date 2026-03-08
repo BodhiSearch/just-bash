@@ -305,6 +305,38 @@ describe("Defense-in-Depth Hardening", () => {
       });
     });
 
+    describe("process.cwd blocking", () => {
+      it("should block process.cwd inside sandbox", async () => {
+        const box = DefenseInDepthBox.getInstance(true);
+        const handle = box.activate();
+
+        let error: Error | undefined;
+        await handle.run(async () => {
+          try {
+            process.cwd();
+          } catch (e) {
+            error = e as Error;
+          }
+        });
+
+        handle.deactivate();
+
+        expect(error).toBeInstanceOf(SecurityViolationError);
+        expect(error?.message).toContain("process.cwd");
+      });
+
+      it("should allow process.cwd outside sandbox", () => {
+        const box = DefenseInDepthBox.getInstance(true);
+        const handle = box.activate();
+
+        expect(typeof process.cwd).toBe("function");
+        const cwd = process.cwd();
+        expect(typeof cwd).toBe("string");
+
+        handle.deactivate();
+      });
+    });
+
     describe("process.chdir blocking", () => {
       it("should block process.chdir inside sandbox", async () => {
         const box = DefenseInDepthBox.getInstance(true);

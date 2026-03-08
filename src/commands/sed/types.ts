@@ -246,7 +246,7 @@ export interface WriteFirstLineCommand {
 }
 
 export interface ExecuteCommand {
-  type: "execute"; // e - execute shell command
+  type: "execute"; // e - execute shell command (blocked in sandbox)
   address?: AddressRange;
   command?: string; // if undefined, execute pattern space
 }
@@ -308,8 +308,6 @@ export interface SedState {
   // For file I/O commands (deferred execution)
   pendingFileReads: Array<{ filename: string; wholeFile: boolean }>;
   pendingFileWrites: Array<{ filename: string; content: string }>;
-  // For e command (deferred execution)
-  pendingExecute?: { command: string; replacePattern: boolean };
   // Range state tracking for pattern ranges like /start/,/end/
   rangeStates: Map<string, RangeState>;
   // Last used regex pattern for empty regex reuse (//)

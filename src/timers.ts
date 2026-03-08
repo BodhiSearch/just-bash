@@ -44,7 +44,4 @@ export const _setInterval: typeof globalThis.setInterval = ((
 export const _clearInterval: typeof globalThis.clearInterval =
   nativeClearInterval;
 
-export const _SharedArrayBuffer: typeof globalThis.SharedArrayBuffer =
-  globalThis.SharedArrayBuffer;
-export const _Atomics: typeof globalThis.Atomics = globalThis.Atomics;
-export const _performanceNow: () => number = performance.now.bind(performance);
+// _SharedArrayBuffer, _Atomics, _performanceNow moved to security/trusted-globals.ts

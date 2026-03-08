@@ -403,11 +403,23 @@ export async function createBzip2CompressedArchive(
 }
 
 /**
- * Create an xz-compressed tar archive from entries
+ * Create an xz-compressed tar archive from entries.
+ *
+ * @param entries - Archive entries to include
+ * @param options - Options controlling compression behavior
+ * @param options.allowNativeCodecs - When false (default), rejects xz compression
+ *   to avoid passing attacker-controlled bytes to native addons (node-liblzma).
  */
 export async function createXzCompressedArchive(
   entries: TarCreateEntry[],
+  options?: { allowNativeCodecs?: boolean },
 ): Promise<Uint8Array> {
+  if (!options?.allowNativeCodecs) {
+    throw new Error(
+      "xz compression is disabled by default (native codec risk). " +
+        "Pass { allowNativeCodecs: true } to opt in.",
+    );
+  }
   const tarBuffer = await createArchive(entries);
   return compressXz(tarBuffer);
 }
@@ -515,11 +527,23 @@ async function decompressZstd(data: Uint8Array): Promise<Uint8Array> {
 }
 
 /**
- * Create a zstd-compressed tar archive from entries
+ * Create a zstd-compressed tar archive from entries.
+ *
+ * @param entries - Archive entries to include
+ * @param options - Options controlling compression behavior
+ * @param options.allowNativeCodecs - When false (default), rejects zstd compression
+ *   to avoid passing attacker-controlled bytes to native addons (@mongodb-js/zstd).
  */
 export async function createZstdCompressedArchive(
   entries: TarCreateEntry[],
+  options?: { allowNativeCodecs?: boolean },
 ): Promise<Uint8Array> {
+  if (!options?.allowNativeCodecs) {
+    throw new Error(
+      "zstd compression is disabled by default (native codec risk). " +
+        "Pass { allowNativeCodecs: true } to opt in.",
+    );
+  }
   const tarBuffer = await createArchive(entries);
   return compressZstd(tarBuffer);
 }

@@ -418,6 +418,67 @@ export class WorkerDefenseInDepth {
           self.inTrap = false;
         }
       },
+      deleteProperty(target, prop) {
+        if (self.inTrap) {
+          return Reflect.deleteProperty(target, prop);
+        }
+        self.inTrap = true;
+        try {
+          const fullPath = `${path}.${String(prop)}`;
+          const message = `${fullPath} deletion is blocked in worker context`;
+          const violation = self.recordViolation(
+            violationType,
+            fullPath,
+            message,
+          );
+
+          if (!auditMode) {
+            throw new WorkerSecurityViolationError(message, violation);
+          }
+          return Reflect.deleteProperty(target, prop);
+        } finally {
+          self.inTrap = false;
+        }
+      },
+      setPrototypeOf(target, proto) {
+        if (self.inTrap) {
+          return Reflect.setPrototypeOf(target, proto);
+        }
+        self.inTrap = true;
+        try {
+          const message = `${path} setPrototypeOf is blocked in worker context`;
+          const violation = self.recordViolation(violationType, path, message);
+
+          if (!auditMode) {
+            throw new WorkerSecurityViolationError(message, violation);
+          }
+          return Reflect.setPrototypeOf(target, proto);
+        } finally {
+          self.inTrap = false;
+        }
+      },
+      defineProperty(target, prop, descriptor) {
+        if (self.inTrap) {
+          return Reflect.defineProperty(target, prop, descriptor);
+        }
+        self.inTrap = true;
+        try {
+          const fullPath = `${path}.${String(prop)}`;
+          const message = `${fullPath} defineProperty is blocked in worker context`;
+          const violation = self.recordViolation(
+            violationType,
+            fullPath,
+            message,
+          );
+
+          if (!auditMode) {
+            throw new WorkerSecurityViolationError(message, violation);
+          }
+          return Reflect.defineProperty(target, prop, descriptor);
+        } finally {
+          self.inTrap = false;
+        }
+      },
     }) as T;
   }
 

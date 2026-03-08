@@ -1,7 +1,7 @@
 import { sanitizeErrorMessage } from "../../fs/sanitize-error.js";
 import { mapToRecord } from "../../helpers/env.js";
 import { shellJoinArgs } from "../../helpers/shell-quote.js";
-import { _performanceNow } from "../../timers.js";
+import { _performanceNow } from "../../security/trusted-globals.js";
 import type { Command, CommandContext, ExecResult } from "../../types.js";
 
 /**

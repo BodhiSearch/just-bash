@@ -731,6 +731,43 @@ export class DefenseInDepthBox {
         }
         return Reflect.has(target, prop);
       },
+      // Block delete operator
+      deleteProperty(target, prop) {
+        if (box.shouldBlock()) {
+          const fullPath = `${path}.${String(prop)}`;
+          const message = `${fullPath} deletion is blocked during script execution`;
+          const violation = box.recordViolation(
+            violationType,
+            fullPath,
+            message,
+          );
+          throw new SecurityViolationError(message, violation);
+        }
+        return Reflect.deleteProperty(target, prop);
+      },
+      // Block Object.setPrototypeOf
+      setPrototypeOf(target, proto) {
+        if (box.shouldBlock()) {
+          const message = `${path} setPrototypeOf is blocked during script execution`;
+          const violation = box.recordViolation(violationType, path, message);
+          throw new SecurityViolationError(message, violation);
+        }
+        return Reflect.setPrototypeOf(target, proto);
+      },
+      // Block Object.defineProperty
+      defineProperty(target, prop, descriptor) {
+        if (box.shouldBlock()) {
+          const fullPath = `${path}.${String(prop)}`;
+          const message = `${fullPath} defineProperty is blocked during script execution`;
+          const violation = box.recordViolation(
+            violationType,
+            fullPath,
+            message,
+          );
+          throw new SecurityViolationError(message, violation);
+        }
+        return Reflect.defineProperty(target, prop, descriptor);
+      },
     }) as T;
   }
 
