@@ -4,7 +4,7 @@ A virtual bash environment with an in-memory filesystem, written in TypeScript a
 
 Broad support for standard unix commands and bash syntax with optional curl, Python, JS/TS, and sqlite support.
 
-**Note**: This is beta software. Use at your own risk and please provide feedback. See [#security-model](security model).
+**Note**: This is beta software. Use at your own risk and please provide feedback. See [security model](#security-model).
 
 ## Quick Start
 
