@@ -231,6 +231,7 @@ export class SyncBackend {
     statusText: string;
     headers: Record<string, string>;
     body: string;
+    bodyBase64: string;
     url: string;
   } {
     const requestData = options
@@ -241,7 +242,23 @@ export class SyncBackend {
       throw new Error(result.error || "HTTP request failed");
     }
     const responseJson = new TextDecoder().decode(result.result);
-    return JSON.parse(responseJson);
+    const parsed = JSON.parse(responseJson) as {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      url: string;
+      bodyBase64: string;
+    };
+    const bodyBase64 = parsed.bodyBase64 ?? "";
+    const body = atob(bodyBase64);
+    return {
+      status: parsed.status,
+      statusText: parsed.statusText,
+      headers: parsed.headers,
+      url: parsed.url,
+      body,
+      bodyBase64,
+    };
   }
 
   /**
