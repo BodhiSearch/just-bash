@@ -38,9 +38,6 @@ function App() {
       basePath={BASE_PATH}
     >
       <AppContent />
-      <div className="fixed bottom-4 right-6 z-50">
-        <BodhiBadge size="md" variant="light" />
-      </div>
     </BodhiProvider>
   );
 }
