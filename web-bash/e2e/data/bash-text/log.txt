@@ -1,0 +1,10 @@
+2025-11-01 08:00:00 INFO starting service
+2025-11-01 08:00:01 INFO connected to database
+2025-11-01 08:00:02 WARN slow query detected in users table
+2025-11-01 08:00:03 ERROR failed to refresh cache: timeout
+2025-11-01 08:00:04 INFO retrying cache refresh
+2025-11-01 08:00:05 INFO cache refreshed
+2025-11-01 08:00:06 WARN slow query detected in events table
+2025-11-01 08:00:07 ERROR unable to reach notification service
+2025-11-01 08:00:08 INFO notification service recovered
+2025-11-01 08:00:09 INFO shutting down service

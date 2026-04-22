@@ -1,0 +1,9 @@
+{
+  "project": "just-bash",
+  "version": "2.14.2",
+  "commands": ["ls", "cat", "grep", "jq"],
+  "metrics": {
+    "passing": 75,
+    "skipped": 7
+  }
+}
