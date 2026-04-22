@@ -5,7 +5,6 @@ import { useFileTree } from '@/hooks/useFileTree';
 import { useVaultMount, type VaultMountPorts } from '@/hooks/useVaultMount';
 import { useDevSeedBoot } from '@/hooks/useDevSeedBoot';
 import { mountVault, unmountVault } from '@/adapters/zenfs-provider';
-import { ZenFsProvider } from '@/adapters/zenfs-fs-provider';
 import Header from './Header';
 import AppSidebar from './AppSidebar';
 import FileViewer from './FileViewer';
@@ -40,7 +39,6 @@ export default function Layout() {
     () => ({
       mount: mountVault,
       unmount: unmountVault,
-      createProvider: (h: FileSystemDirectoryHandle) => new ZenFsProvider(h.name),
     }),
     []
   );

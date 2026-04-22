@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plug, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plug, ChevronRight, ChevronDown, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -120,6 +120,29 @@ interface McpPopoverProps {
   getCheckboxState: (mcpId: string) => 'checked' | 'unchecked' | 'indeterminate';
   enabledToolCount: number;
   isLoading: boolean;
+  bashEnabled: boolean;
+  onToggleBash: () => void;
+}
+
+function BashToolRow({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <div
+      data-testid="bash-tool-row"
+      data-test-state={enabled ? 'enabled' : 'disabled'}
+      className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b border-border mb-1"
+    >
+      <Terminal className="size-4 text-muted-foreground" />
+      <Checkbox
+        data-testid="checkbox-bash-tool"
+        id="bash-tool-toggle"
+        checked={enabled}
+        onCheckedChange={() => onToggle()}
+      />
+      <label htmlFor="bash-tool-toggle" className="text-sm cursor-pointer flex-1">
+        bash (/vault)
+      </label>
+    </div>
+  );
 }
 
 export default function McpPopover({
@@ -131,6 +154,8 @@ export default function McpPopover({
   getCheckboxState,
   enabledToolCount,
   isLoading,
+  bashEnabled,
+  onToggleBash,
 }: McpPopoverProps) {
   const [expandedMcps, setExpandedMcps] = useState<Set<string>>(new Set());
 
@@ -146,6 +171,8 @@ export default function McpPopover({
     });
   };
 
+  const badgeCount = enabledToolCount + (bashEnabled ? 1 : 0);
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -154,15 +181,15 @@ export default function McpPopover({
           variant="ghost"
           size="icon"
           className="relative"
-          title="MCP Servers"
+          title="Tools"
         >
           <Plug className="size-4" />
-          {enabledToolCount > 0 && (
+          {badgeCount > 0 && (
             <span
               data-testid="mcps-badge"
               className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] bg-blue-500 text-white rounded-full flex items-center justify-center"
             >
-              {enabledToolCount}
+              {badgeCount}
             </span>
           )}
         </Button>
@@ -173,6 +200,7 @@ export default function McpPopover({
         align="start"
         side="top"
       >
+        <BashToolRow enabled={bashEnabled} onToggle={onToggleBash} />
         {isLoading ? (
           <p className="text-sm text-muted-foreground p-2">Loading MCP servers...</p>
         ) : mcps.length === 0 ? (

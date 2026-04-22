@@ -1,17 +1,14 @@
 import { useEffect, useReducer, useRef } from 'react';
-import type { FileSystemProvider } from '@/adapters/zenfs-fs-provider';
 
 export type VaultMountStatus = 'idle' | 'mounting' | 'ready' | 'error';
 
 export interface VaultMountPorts {
   mount: (handle: FileSystemDirectoryHandle) => Promise<void>;
   unmount: () => Promise<void>;
-  createProvider: (handle: FileSystemDirectoryHandle) => FileSystemProvider;
 }
 
 export interface UseVaultMountResult {
   status: VaultMountStatus;
-  fsProvider: FileSystemProvider | null;
   error: string | null;
 }
 
@@ -20,12 +17,11 @@ type State = UseVaultMountResult;
 type Action =
   | { type: 'reset' }
   | { type: 'mounting' }
-  | { type: 'ready'; fsProvider: FileSystemProvider }
+  | { type: 'ready' }
   | { type: 'error'; message: string };
 
 const INITIAL_STATE: State = {
   status: 'idle',
-  fsProvider: null,
   error: null,
 };
 
@@ -34,11 +30,11 @@ function reducer(state: State, action: Action): State {
     case 'reset':
       return INITIAL_STATE;
     case 'mounting':
-      return { status: 'mounting', fsProvider: null, error: null };
+      return { status: 'mounting', error: null };
     case 'ready':
-      return { status: 'ready', fsProvider: action.fsProvider, error: null };
+      return { status: 'ready', error: null };
     case 'error':
-      return { status: 'error', fsProvider: null, error: action.message };
+      return { status: 'error', error: action.message };
     default:
       return state;
   }
@@ -70,8 +66,7 @@ export function useVaultMount(
       try {
         await portsRef.current.mount(handle);
         if (cancelled) return;
-        const provider = portsRef.current.createProvider(handle);
-        dispatch({ type: 'ready', fsProvider: provider });
+        dispatch({ type: 'ready' });
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);

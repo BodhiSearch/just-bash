@@ -11,6 +11,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      'node:zlib': path.resolve(__dirname, './src/shims/node-zlib.ts'),
     },
   },
   server: {

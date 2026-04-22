@@ -25,6 +25,8 @@ interface ChatInputProps {
   getCheckboxState: (mcpId: string) => 'checked' | 'unchecked' | 'indeterminate';
   enabledToolCount: number;
   isMcpsLoading: boolean;
+  bashEnabled: boolean;
+  onToggleBash: () => void;
 }
 
 export default function ChatInput({
@@ -43,6 +45,8 @@ export default function ChatInput({
   getCheckboxState,
   enabledToolCount,
   isMcpsLoading,
+  bashEnabled,
+  onToggleBash,
 }: ChatInputProps) {
   const { isReady, isAuthenticated } = useBodhi();
   const [message, setMessage] = useState('');
@@ -102,6 +106,8 @@ export default function ChatInput({
               getCheckboxState={getCheckboxState}
               enabledToolCount={enabledToolCount}
               isLoading={isMcpsLoading}
+              bashEnabled={bashEnabled}
+              onToggleBash={onToggleBash}
             />
 
             <ModelCombobox

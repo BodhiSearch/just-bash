@@ -8,8 +8,6 @@
  */
 
 import { configure, fs, vfs, InMemory } from '@zenfs/core';
-import type { FileSystemProvider } from './zenfs-fs-provider';
-import { ZenFsProvider } from './zenfs-fs-provider';
 import { VAULT_MOUNT } from './zenfs-provider';
 
 export interface InMemoryVaultSeed {
@@ -22,7 +20,6 @@ export interface InMemoryVaultSeed {
 export interface InMemoryVaultAdapter {
   mount: (handle: FileSystemDirectoryHandle) => Promise<void>;
   unmount: () => Promise<void>;
-  createProvider: (handle: FileSystemDirectoryHandle) => FileSystemProvider;
 }
 
 export function createInMemoryVaultAdapter(seed: InMemoryVaultSeed): InMemoryVaultAdapter {
@@ -77,11 +74,7 @@ export function createInMemoryVaultAdapter(seed: InMemoryVaultSeed): InMemoryVau
     mounted = false;
   }
 
-  function createProvider(): FileSystemProvider {
-    return new ZenFsProvider(seed.name);
-  }
-
-  return { mount, unmount, createProvider };
+  return { mount, unmount };
 }
 
 /**

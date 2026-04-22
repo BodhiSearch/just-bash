@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { useAgent } from '@/hooks/useAgent';
 import { useMcpList } from '@/hooks/useMcpList';
 import { useMcpSelection } from '@/hooks/useMcpSelection';
 import { useMcpAgentTools } from '@/hooks/useMcpAgentTools';
+import { useBashTool } from '@/hooks/useBashTool';
 import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 
@@ -11,8 +12,10 @@ export default function ChatDemo() {
   const { mcps, toolsByMcpId, isLoading: isMcpsLoading } = useMcpList();
   const { enabledMcpTools, toggleTool, toggleMcp, getEnabledToolCount, getCheckboxState } =
     useMcpSelection(mcps, toolsByMcpId);
+  const { bashEnabled, toggleBash, bashTools } = useBashTool();
 
-  const tools = useMcpAgentTools({ enabledMcpTools, mcps, toolsByMcpId });
+  const mcpTools = useMcpAgentTools({ enabledMcpTools, mcps, toolsByMcpId });
+  const tools = useMemo(() => [...bashTools, ...mcpTools], [bashTools, mcpTools]);
 
   const {
     messages,
@@ -62,6 +65,8 @@ export default function ChatDemo() {
         getCheckboxState={getCheckboxState}
         enabledToolCount={getEnabledToolCount()}
         isMcpsLoading={isMcpsLoading}
+        bashEnabled={bashEnabled}
+        onToggleBash={toggleBash}
       />
     </>
   );
