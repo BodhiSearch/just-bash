@@ -27,7 +27,13 @@ function ToolCallDisplay({ toolCall, result }: ToolCallDisplayProps) {
   const resultText = result ? toolResultText(result) : '';
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div
+      className="border border-gray-200 rounded-lg overflow-hidden"
+      data-testid="tool-call-item"
+      data-tool-name={toolCall.name}
+      data-tool-call-id={toolCall.id}
+      data-teststate={result ? 'completed' : 'executing'}
+    >
       <button
         data-testid="tool-call-expand"
         className="flex items-center gap-2 w-full p-2 text-left text-sm hover:bg-gray-50"
@@ -43,16 +49,40 @@ function ToolCallDisplay({ toolCall, result }: ToolCallDisplayProps) {
           {result ? 'completed' : 'executing...'}
         </span>
       </button>
+      {result && (
+        <pre
+          data-testid="tool-call-result-raw"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            left: -9999,
+            overflow: 'hidden',
+            whiteSpace: 'pre',
+          }}
+        >
+          {resultText}
+        </pre>
+      )}
       {isExpanded && (
         <div data-testid="tool-call-content" className="p-2 border-t text-xs">
           <div className="mb-2">
             <div className="font-medium text-gray-500 mb-1">Arguments</div>
-            <pre className="bg-gray-50 p-2 rounded overflow-x-auto">{parsedArgs}</pre>
+            <pre
+              data-testid="tool-call-arguments"
+              className="bg-gray-50 p-2 rounded overflow-x-auto"
+            >
+              {parsedArgs}
+            </pre>
           </div>
           {result && (
             <div>
               <div className="font-medium text-gray-500 mb-1">Result</div>
-              <pre className="bg-gray-50 p-2 rounded overflow-x-auto max-h-40">
+              <pre
+                data-testid="tool-call-result"
+                className="bg-gray-50 p-2 rounded overflow-x-auto max-h-40"
+              >
                 {resultText.slice(0, 500)}
                 {resultText.length > 500 ? '...' : ''}
               </pre>

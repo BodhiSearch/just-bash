@@ -1,7 +1,7 @@
 import { Page, expect } from '@playwright/test';
 
 export class ChatPage {
-  constructor(private page: Page) {}
+  constructor(protected page: Page) {}
 
   selectors = {
     appTitle: '[data-testid="app-title"]',
