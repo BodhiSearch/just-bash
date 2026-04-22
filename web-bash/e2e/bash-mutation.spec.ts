@@ -27,10 +27,7 @@ test.describe('just-bash write / mutation over /vault', () => {
     expect(mkResult.stdout).toContain('nested');
 
     // Turn 1: touch creates an empty file.
-    const touchResult = await chat.runBash(
-      1,
-      'touch /vault/work/a.txt && stat /vault/work/a.txt'
-    );
+    const touchResult = await chat.runBash(1, 'touch /vault/work/a.txt && stat /vault/work/a.txt');
     expect(touchResult.exitCode).toBe(0);
     expect(touchResult.stdout).toContain('a.txt');
 
@@ -62,18 +59,12 @@ test.describe('just-bash write / mutation over /vault', () => {
     expect(renamed).toContain('seed content for bash-mutation phase');
 
     // Turn 5: rm deletes the renamed file.
-    const rmResult = await chat.runBash(
-      5,
-      'rm /vault/work/renamed.txt && ls /vault/work'
-    );
+    const rmResult = await chat.runBash(5, 'rm /vault/work/renamed.txt && ls /vault/work');
     expect(rmResult.exitCode).toBe(0);
     expect(rmResult.stdout).not.toContain('renamed.txt');
 
     // Turn 6: rmdir clears the nested empty directory.
-    const rmdirResult = await chat.runBash(
-      6,
-      'rmdir /vault/work/nested && ls /vault/work'
-    );
+    const rmdirResult = await chat.runBash(6, 'rmdir /vault/work/nested && ls /vault/work');
     expect(rmdirResult.exitCode).toBe(0);
     expect(rmdirResult.stdout).not.toContain('nested');
 
@@ -85,10 +76,7 @@ test.describe('just-bash write / mutation over /vault', () => {
     expect(chmodResult.exitCode).toBe(0);
 
     // Turn 8: tee splits stdout into a file while echoing.
-    const teeResult = await chat.runBash(
-      8,
-      'echo teed-line | tee /vault/work/teed.txt'
-    );
+    const teeResult = await chat.runBash(8, 'echo teed-line | tee /vault/work/teed.txt');
     expect(teeResult.exitCode).toBe(0);
     expect(teeResult.stdout).toContain('teed-line');
     const teed = await fs.readVirtualFile('/vault/work/teed.txt');

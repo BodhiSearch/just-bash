@@ -36,10 +36,7 @@ test.describe('just-bash interpreter grammar', () => {
     expect(andOr2.stdout.trim()).toBe('no');
 
     // Subshell grouping (...).
-    const sub = await chat.runBash(
-      3,
-      '(cd /vault/nums && ls) | sort'
-    );
+    const sub = await chat.runBash(3, '(cd /vault/nums && ls) | sort');
     expect(sub.exitCode).toBe(0);
     expect(sub.stdout).toContain('01.txt');
     expect(sub.stdout).toContain('02.txt');
@@ -87,7 +84,7 @@ test.describe('just-bash interpreter grammar', () => {
     expect(brace.stdout.trim()).toBe('a.txt b.txt c.txt');
 
     // Double quoting preserves variable expansion; single quoting does not.
-    const quoting = await chat.runBash(11, "X=42; echo \"double=$X\"; echo 'single=$X'");
+    const quoting = await chat.runBash(11, 'X=42; echo "double=$X"; echo \'single=$X\'');
     expect(quoting.exitCode).toBe(0);
     expect(quoting.stdout).toContain('double=42');
     expect(quoting.stdout).toContain('single=$X');

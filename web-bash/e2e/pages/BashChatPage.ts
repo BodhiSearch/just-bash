@@ -125,6 +125,35 @@ export class BashChatPage extends ChatPage {
     return parts.join('\n');
   }
 
+  /**
+   * Execute a bash command directly via the dev-only window.__bashExec hook,
+   * bypassing the LLM. Used for multi-line / heredoc / complex commands
+   * where LLM tool-call argument fidelity is unreliable.
+   */
+  async runBashDirect(command: string, cwd?: string): Promise<BashToolResult> {
+    const res = await this.page.evaluate(
+      async ([cmd, cwdArg]) => {
+        const hook = (
+          window as unknown as {
+            __bashExec?: (
+              c: string,
+              d?: string
+            ) => Promise<{ stdout: string; stderr: string; exitCode: number; formatted: string }>;
+          }
+        ).__bashExec;
+        if (!hook) throw new Error('window.__bashExec is not available');
+        return await hook(cmd, cwdArg);
+      },
+      [command, cwd] as [string, string | undefined]
+    );
+    return {
+      raw: res.formatted,
+      exitCode: res.exitCode,
+      stdout: res.stdout,
+      stderr: res.stderr,
+    };
+  }
+
   async getLastToolResult(): Promise<BashToolResult> {
     const items = this.page.locator(this.bashSelectors.bashToolItem);
     const count = await items.count();

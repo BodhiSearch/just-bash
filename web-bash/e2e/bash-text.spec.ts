@@ -21,7 +21,7 @@ test.describe('just-bash text processing over /vault', () => {
     await chat.enableBashTool();
 
     // grep ERROR lines in the log.
-    const grep = await chat.runBash(0, "grep ERROR /vault/log.txt");
+    const grep = await chat.runBash(0, 'grep ERROR /vault/log.txt');
     expect(grep.exitCode).toBe(0);
     expect(grep.stdout).toContain('failed to refresh cache');
     expect(grep.stdout).toContain('unable to reach notification service');
@@ -44,10 +44,7 @@ test.describe('just-bash text processing over /vault', () => {
     expect(rg.stdout).toMatch(/^\s*\d+:/m);
 
     // sed substitution: rewrite ERROR to FAILURE.
-    const sed = await chat.runBash(
-      4,
-      "sed 's/ERROR/FAILURE/g' /vault/log.txt | grep -c FAILURE"
-    );
+    const sed = await chat.runBash(4, "sed 's/ERROR/FAILURE/g' /vault/log.txt | grep -c FAILURE");
     expect(sed.exitCode).toBe(0);
     expect(sed.stdout).toMatch(/\b2\b/);
 
@@ -62,10 +59,7 @@ test.describe('just-bash text processing over /vault', () => {
     expect(awk.stdout).toContain('ERROR');
 
     // cut + sort: unique team names from the CSV (skip header).
-    const cut = await chat.runBash(
-      6,
-      "tail -n +2 /vault/data.csv | cut -d',' -f3 | sort | uniq"
-    );
+    const cut = await chat.runBash(6, "tail -n +2 /vault/data.csv | cut -d',' -f3 | sort | uniq");
     expect(cut.exitCode).toBe(0);
     expect(cut.stdout).toContain('platform');
     expect(cut.stdout).toContain('tools');

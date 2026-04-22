@@ -3,12 +3,17 @@ import { BodhiProvider, useBodhi } from '@bodhiapp/bodhi-js-react';
 import { Toaster } from '@/components/ui/sonner';
 import { AUTH_CLIENT_ID, AUTH_SERVER_URL } from './env';
 import Layout from './components/Layout';
+import { installBashTestHook } from '@/tools/install-bash-test-hook';
 
 const BASE_PATH = import.meta.env.BASE_URL;
 
 function AppContent() {
   const { clientState, showSetup } = useBodhi();
   const hasAutoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    installBashTestHook();
+  }, []);
 
   useEffect(() => {
     const shouldAutoOpen =
